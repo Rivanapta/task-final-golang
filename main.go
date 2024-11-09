@@ -29,6 +29,9 @@ func main() {
 
 	// secret-key
 	signingKey := os.Getenv("SIGNING_KEY")
+	if signingKey == "" {
+		log.Fatal("SIGNING_KEY not set in environment")
+	}
 
 	r := gin.Default()
 
@@ -47,7 +50,9 @@ func main() {
 	accountRoutes.DELETE("/delete/:id", accountHandler.Delete)
 	accountRoutes.GET("/list", accountHandler.List)
 	accountRoutes.POST("/topup", accountHandler.TopUp)
-	accountRoutes.POST("/balance", accountHandler.Balance)
+	accountRoutes.POST("/transfer", middleware.AuthMiddleware(signingKey), accountHandler.Transfer)
+	accountRoutes.GET("/mutation", middleware.AuthMiddleware(signingKey), accountHandler.Mutation)
+	accountRoutes.GET("/balance", middleware.AuthMiddleware(signingKey), accountHandler.Balance)
 
 	accountRoutes.GET("/my", middleware.AuthMiddleware(signingKey), accountHandler.My)
 
@@ -60,12 +65,22 @@ func main() {
 	transacttionCTGRoutes.DELETE("/delete/:id", transacttionCTGHandler.Delete)
 	transacttionCTGRoutes.GET("/list", transacttionCTGHandler.List)
 
+	// grouping route with /transaction
+	transactionHandler := handler.NewTransaction(db)
+	transactionRoutes := r.Group("/transaction")
+	transactionRoutes.POST("/create", middleware.AuthMiddleware(signingKey), transactionHandler.NewTransaction)
+	transactionRoutes.GET("/list", middleware.AuthMiddleware(signingKey), transactionHandler.TransactionList)
+
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
 
 func NewDatabase() *gorm.DB {
 	// dsn := "host=localhost port=5432 user=postgres dbname=digi sslmode=disable TimeZone=Asia/Jakarta"
 	dsn := os.Getenv("DATABASE")
+	if dsn == "" {
+		log.Fatal("DATABASE not set in environment")
+	}
+
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal(err)
