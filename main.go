@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/rs/cors"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -34,12 +35,26 @@ func main() {
 	}
 
 	r := gin.Default()
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:3000"}, // Ganti dengan domain yang diperbolehkan
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
+		AllowedHeaders:   []string{"Authorization", "Content-Type"},
+		AllowCredentials: true,
+	})
+
+	// Apply CORS as a Gin middleware
+	r.Use(func(ctx *gin.Context) {
+		c.HandlerFunc(ctx.Writer, ctx.Request)
+		ctx.Next()
+	})
 
 	// grouping route with /auth
 	authHandler := handler.NewAuth(db, []byte(signingKey))
 	authRoute := r.Group("/auth")
 	authRoute.POST("/login", authHandler.Login)
 	authRoute.POST("/upsert", authHandler.Upsert)
+	// Tambahkan route baru untuk /change-password dengan menggunakan middleware AuthMiddleware
+	authRoute.POST("/change-password", middleware.AuthMiddleware(signingKey), authHandler.ChangePassword)
 
 	// grouping route with /account
 	accountHandler := handler.NewAccount(db)

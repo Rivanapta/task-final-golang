@@ -122,6 +122,7 @@ func (a *accountImplement) Update(c *gin.Context) {
 
 	// Update data
 	account.Name = payload.Name
+	account.Balance = payload.Balance
 	a.db.Save(account)
 
 	// Success response
